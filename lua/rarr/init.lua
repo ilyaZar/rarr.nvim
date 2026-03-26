@@ -25,9 +25,16 @@ function M.setup(opts)
   package.register_commands()
   package.register_package_buffer_autocmd()
 
-  opts.R_app = "rarr"
+  opts.R_app = package.r_app_command()
   opts.R_cmd = "R"
   opts.bracketed_paste = true
+  -- rarr renders its own ANSI-colored prompt and banner.
+  -- Disable R.nvim's terminal syntax highlighting fallback so it
+  -- does not override or partially recolor terminal output.
+  opts.hl_term = false
+  -- Let rarr/reedline receive <Esc> directly so vi mode can switch
+  -- between insert and normal inside the R console.
+  opts.esc_term = false
   opts.hook = opts.hook or {}
 
   opts.hook.on_filetype = function()

@@ -85,6 +85,59 @@ local function read_theme_color(name, fallback)
   return fallback
 end
 
+local function hl_bg(name, fallback)
+  local ok, hl = pcall(vim.api.nvim_get_hl, 0, { name = name, link = false })
+  if ok and type(hl) == "table" and hl.bg then
+    return string.format("#%06x", hl.bg)
+  end
+  return fallback
+end
+
+local function lualine_bg(name)
+  local ok, highlight = pcall(require, "lualine.highlight")
+  if not ok then
+    return nil
+  end
+
+  local ok_hl, hl = pcall(highlight.get_lualine_hl, name)
+  if ok_hl and type(hl) == "table" and type(hl.bg) == "string" then
+    return hl.bg
+  end
+end
+
+local function console_palette()
+  local fg = "#1f2335"
+  return {
+    fg = fg,
+    insert = lualine_bg("lualine_a_terminal")
+      or hl_bg("MiniStatuslineModeInsert", read_theme_color("color3", "#e0af68")),
+    insert_nc = hl_bg(
+      "MiniStatuslineModeInsert",
+      read_theme_color("color11", "#e0af68")
+    ),
+    normal = lualine_bg("lualine_a_normal")
+      or hl_bg("MiniStatuslineModeNormal", read_theme_color("color4", "#81a1c1")),
+    normal_nc = hl_bg(
+      "MiniStatuslineModeNormal",
+      read_theme_color("color12", "#81a1c1")
+    ),
+  }
+end
+
+local function console_job_id(bufnr)
+  local ok, job_id = pcall(vim.api.nvim_buf_get_var, bufnr, "terminal_job_id")
+  if ok then
+    return job_id
+  end
+end
+
+local function current_console_mode()
+  if vim.api.nvim_get_mode().mode == "t" then
+    return "insert"
+  end
+  return "normal"
+end
+
 local function current_path(bufnr)
   local path = vim.api.nvim_buf_get_name(bufnr or 0)
   if path == "" then
@@ -170,31 +223,33 @@ local function visible_r_window()
   end
 end
 
-function M.set_console_winbar()
+function M.set_console_winbar(mode)
   local win = visible_r_window()
   if not win then
     return
   end
 
   local terminal = require("rarr.terminal")
-  local tmux_blue = read_theme_color("color4", "#81a1c1")
-  local inactive_tmux_blue = read_theme_color("color12", tmux_blue)
+  local palette = console_palette()
+  local active_mode = mode or current_console_mode()
+  local active_bg = active_mode == "insert" and palette.insert or palette.normal
+  local inactive_bg = active_mode == "insert" and palette.insert_nc or palette.normal_nc
   local label = terminal.terminal_label()
 
   vim.api.nvim_set_hl(0, "RConsoleWinBar", {
-    fg = "#1f2335",
-    bg = tmux_blue,
+    fg = palette.fg,
+    bg = active_bg,
     bold = true,
   })
   vim.api.nvim_set_hl(0, "RConsoleWinBarNC", {
-    fg = "#1f2335",
-    bg = inactive_tmux_blue,
+    fg = palette.fg,
+    bg = inactive_bg,
     bold = true,
   })
 
   vim.api.nvim_set_option_value(
     "winbar",
-    "%#RConsoleWinBar#  " .. label .. "  %#RConsoleWinBarNC#",
+    "%#RConsoleWinBar#  " .. label .. "  ",
     { scope = "local", win = win }
   )
   vim.api.nvim_set_option_value(
@@ -202,6 +257,16 @@ function M.set_console_winbar()
     "WinBar:RConsoleWinBar,WinBarNC:RConsoleWinBarNC",
     { scope = "local", win = win }
   )
+end
+
+function M.r_app_command()
+  local palette = console_palette()
+  return table.concat({
+    "env",
+    "RARR_PROMPT_INSERT_COLOR='" .. palette.insert .. "'",
+    "RARR_PROMPT_NORMAL_COLOR='" .. palette.normal .. "'",
+    "rarr",
+  }, " ")
 end
 
 -- Console toggle --------------------------------------------------
@@ -323,8 +388,76 @@ function M.set_console_navigation_keymaps()
     end
   end
 
-  M.set_console_winbar()
+  M.set_console_mode_bridge(bufnr)
+  M.set_console_winbar("insert")
   M.set_toggle_keymaps(bufnr)
+  M.set_console_insert_autocmd(bufnr)
+end
+
+function M.set_console_mode_bridge(bufnr)
+  if not bufnr or not vim.api.nvim_buf_is_valid(bufnr) then
+    return
+  end
+
+  local job_id = console_job_id(bufnr)
+  if not job_id then
+    return
+  end
+
+  vim.keymap.set("t", "<Esc>", function()
+    vim.fn.chansend(job_id, "\027")
+    vim.schedule(function()
+      if vim.api.nvim_buf_is_valid(bufnr) then
+        vim.cmd("stopinsert")
+        M.set_console_winbar("normal")
+      end
+    end)
+  end, {
+    buffer = bufnr,
+    desc = "Switch rarr and Neovim to normal mode",
+    silent = true,
+  })
+
+  for _, key in ipairs({ "i", "a", "I", "A" }) do
+    vim.keymap.set("n", key, function()
+      vim.cmd("startinsert")
+      vim.fn.chansend(job_id, key)
+      M.set_console_winbar("insert")
+    end, {
+      buffer = bufnr,
+      desc = "Switch rarr and Neovim to insert mode",
+      silent = true,
+    })
+  end
+end
+
+function M.set_console_insert_autocmd(bufnr)
+  if not bufnr or not vim.api.nvim_buf_is_valid(bufnr) then
+    return
+  end
+
+  local group = vim.api.nvim_create_augroup("rarr-console-state", { clear = true })
+
+  vim.api.nvim_create_autocmd("WinEnter", {
+    group = group,
+    buffer = bufnr,
+    callback = function()
+      if vim.api.nvim_get_mode().mode ~= "t" then
+        vim.cmd("startinsert")
+      end
+      M.set_console_winbar("insert")
+    end,
+  })
+
+  vim.api.nvim_create_autocmd("ModeChanged", {
+    group = group,
+    callback = function()
+      if vim.api.nvim_get_current_buf() ~= bufnr then
+        return
+      end
+      M.set_console_winbar(current_console_mode())
+    end,
+  })
 end
 
 -- Autocmd for toggle keymaps on BufEnter/TermOpen -----------------
