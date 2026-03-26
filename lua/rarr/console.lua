@@ -246,6 +246,14 @@ local function set_mode_bridge(bufnr)
     })
   end
 
+  vim.keymap.set("n", "<C-d>", function()
+    send_console_key(bufnr, "i\004")
+  end, {
+    buffer = bufnr,
+    desc = "Send EOF to R console",
+    silent = true,
+  })
+
   -- Window navigation from terminal mode. Transitions to normal
   -- (syncs M.mode + sends Esc to reedline) before navigating,
   -- so the i/a/I/A bridge works correctly on return.
