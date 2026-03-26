@@ -254,6 +254,26 @@ local function set_mode_bridge(bufnr)
     silent = true,
   })
 
+  -- R operator shortcuts. Neovim's terminal doesn't pass Ctrl +
+  -- punctuation keys through to crossterm, so we send the text
+  -- directly via chansend (reedline is in vi insert per bridge).
+  local operators = {
+    ["<C-;>"] = " <- ",
+    ["<C-:>"] = " |> ",
+    ["<C-'>"] = " %||% ",
+    ['<C-">'] = " %in% ",
+  }
+
+  for lhs, text in pairs(operators) do
+    vim.keymap.set("t", lhs, function()
+      send_console_key(bufnr, text)
+    end, {
+      buffer = bufnr,
+      desc = "Insert R operator",
+      silent = true,
+    })
+  end
+
   -- Window navigation from terminal mode. Transitions to normal
   -- (syncs M.mode + sends Esc to reedline) before navigating,
   -- so the i/a/I/A bridge works correctly on return.
