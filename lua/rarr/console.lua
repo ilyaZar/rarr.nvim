@@ -60,7 +60,7 @@ end
 local function send_console_key(bufnr, key)
   local job_id = console_job_id(bufnr)
   if job_id then
-    vim.fn.chansend(job_id, key)
+    pcall(vim.fn.chansend, job_id, key)
   end
 end
 
