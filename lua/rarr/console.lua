@@ -245,6 +245,32 @@ local function set_mode_bridge(bufnr)
       silent = true,
     })
   end
+
+  -- Window navigation from terminal mode. Transitions to normal
+  -- (syncs M.mode + sends Esc to reedline) before navigating,
+  -- so the i/a/I/A bridge works correctly on return.
+  local ok_ss, smart_splits = pcall(require, "smart-splits")
+  local nav = {
+    ["<C-h>"] = ok_ss and smart_splits.move_cursor_left
+      or function() vim.cmd("wincmd h") end,
+    ["<C-j>"] = ok_ss and smart_splits.move_cursor_down
+      or function() vim.cmd("wincmd j") end,
+    ["<C-k>"] = ok_ss and smart_splits.move_cursor_up
+      or function() vim.cmd("wincmd k") end,
+    ["<C-l>"] = ok_ss and smart_splits.move_cursor_right
+      or function() vim.cmd("wincmd l") end,
+  }
+
+  for lhs, move in pairs(nav) do
+    vim.keymap.set("t", lhs, function()
+      set_console_normal(bufnr)
+      move()
+    end, {
+      buffer = bufnr,
+      desc = "Navigate window from console",
+      silent = true,
+    })
+  end
 end
 
 function M.setup_console()
