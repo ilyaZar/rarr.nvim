@@ -271,6 +271,18 @@ local function set_mode_bridge(bufnr)
       silent = true,
     })
   end
+
+  -- Catch non-bridge exits from terminal mode (mouse click,
+  -- <C-\><C-n>, external stopinsert). Idempotent: skips if the
+  -- bridge already transitioned to normal.
+  vim.api.nvim_create_autocmd("TermLeave", {
+    buffer = bufnr,
+    callback = function()
+      if M.mode ~= "normal" then
+        set_console_normal(bufnr)
+      end
+    end,
+  })
 end
 
 function M.setup_console()
