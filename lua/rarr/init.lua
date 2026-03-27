@@ -17,6 +17,16 @@
 
 local M = {}
 
+local function warn_conflict(opts, key, required, reason)
+  if opts[key] ~= nil and opts[key] ~= required then
+    vim.notify(
+      string.format(
+        "rarr.nvim: overriding %s = %s (requires %s: %s)",
+        key, tostring(opts[key]), tostring(required), reason),
+      vim.log.levels.WARN)
+  end
+end
+
 --- Wire rarr into R.nvim opts.
 --- Call this inside the R.nvim opts function.
 --- @param opts table   R.nvim options table (mutated in place)
@@ -36,15 +46,15 @@ function M.setup(opts, config)
 
   package.register_commands()
 
+  warn_conflict(opts, "hl_term", false,
+    "rarr renders its own ANSI prompt")
+  warn_conflict(opts, "esc_term", false,
+    "Esc must reach reedline for vi mode")
+
   opts.R_app = console.r_app_command()
   opts.R_cmd = "R"
   opts.bracketed_paste = true
-  -- rarr renders its own ANSI-colored prompt and banner.
-  -- Disable R.nvim's terminal syntax highlighting fallback so it
-  -- does not override or partially recolor terminal output.
   opts.hl_term = false
-  -- Let rarr/reedline receive <Esc> directly so vi mode can switch
-  -- between insert and normal inside the R console.
   opts.esc_term = false
   opts.hook = opts.hook or {}
 
