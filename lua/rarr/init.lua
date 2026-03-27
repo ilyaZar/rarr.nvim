@@ -6,7 +6,12 @@
 --     "R-nvim/R.nvim",
 --     dependencies = { "path/to/rarr.nvim" },
 --     opts = function(_, opts)
---       require("rarr").setup(opts)
+--       require("rarr").setup(opts, {
+--         actions = {
+--           { key = "search", map = "<C-x>",
+--             expr = "search()", desc = "R: search" },
+--         },
+--       })
 --     end,
 --   }
 
@@ -14,14 +19,20 @@ local M = {}
 
 --- Wire rarr into R.nvim opts.
 --- Call this inside the R.nvim opts function.
---- @param opts table  R.nvim options table (mutated in place)
-function M.setup(opts)
+--- @param opts table   R.nvim options table (mutated in place)
+--- @param config table|nil  rarr-specific config (optional)
+function M.setup(opts, config)
+  config = config or {}
   local package = require("rarr.package")
   local console = require("rarr.console")
   local debug = require("rarr.debug")
 
   local prev_on_filetype = opts.hook and opts.hook.on_filetype
   local prev_after_r_start = opts.hook and opts.hook.after_R_start
+
+  if config.actions then
+    package.configure(config.actions)
+  end
 
   package.register_commands()
 

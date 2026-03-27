@@ -390,6 +390,7 @@ function M.setup_console()
   end
 
   set_mode_bridge(bufnr)
+  require("rarr.package").set_keymaps(bufnr, { "t" })
   M.set_toggle_keymaps(bufnr)
   focus_console(console_win())
   set_insert_mode(bufnr, nil)
