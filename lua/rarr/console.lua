@@ -299,6 +299,23 @@ local function set_mode_bridge(bufnr)
     })
   end
 
+  -- Autocmd firing order for each user action:
+  --
+  -- <Esc> (bridge):    set_console_normal runs directly;
+  --                    TermLeave fires but M.mode=="normal" -> no-op
+  -- <C-h/j/k/l> (nav): arm_insert_return + stop_terminal_mode;
+  --                    TermLeave fires but resume_insert -> no-op
+  -- Ctrl+/ (hide):    arm_insert_return runs; window closes
+  -- <C-\><C-n>:       TermLeave fires, still on buffer ->
+  --                    set_console_normal
+  -- Mouse away (from terminal mode):
+  --                    TermLeave fires, not on buffer ->
+  --                    arm_insert_return
+  -- Mouse away (from normal mode):
+  --                    WinLeave fires -> arm_insert_return
+  -- Return to console: BufEnter/WinEnter fires ->
+  --                    if resume_insert, startinsert
+
   vim.api.nvim_create_autocmd("TermLeave", {
     buffer = bufnr,
     callback = function()
