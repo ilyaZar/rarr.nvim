@@ -1,8 +1,7 @@
 local M = {}
 
--- Authoritative console mode. Every transition updates this before
--- sending keys to rarr. Read it to know the current mode without
--- guessing. Startup explicitly sets insert mode in setup_console().
+-- Intended rarr mode. Focus hooks may need to restore Neovim's
+-- terminal state to match it.
 M.mode = "normal"
 
 local DEFAULT_INSERT_COLOR = "#c9826b"
@@ -111,8 +110,6 @@ local function set_insert_mode(bufnr, key)
 
   M.mode = "insert"
 
-  -- Re-enter terminal mode if Neovim is in normal mode (after
-  -- startup, <C-\><C-n>, or toggle reopen).
   if vim.api.nvim_get_current_buf() == bufnr
     and vim.api.nvim_get_mode().mode ~= "t"
   then
@@ -148,8 +145,6 @@ local function set_console_normal(bufnr)
 
   send_console_key(bufnr, "\027")
 
-  -- Exit terminal mode so Neovim normal-mode keys (window
-  -- navigation, i/a/I/A bridge) work on the console buffer.
   if vim.api.nvim_get_current_buf() == bufnr
     and vim.api.nvim_get_mode().mode == "t"
   then
@@ -157,26 +152,6 @@ local function set_console_normal(bufnr)
   end
 
   M.set_console_winbar("normal")
-end
-
---- Transition the console to the given mode. Skips if already
---- in the requested mode (no redundant key sends).
---- @param bufnr integer
---- @param mode "insert"|"normal"
---- @param key? string  initiating key for insert (i/a/I/A)
-local function set_mode(bufnr, mode, key)
-  if mode == M.mode then
-    return
-  end
-
-  if mode == "normal" then
-    set_console_normal(bufnr)
-    return
-  end
-
-  if mode == "insert" then
-    set_insert_mode(bufnr, key)
-  end
 end
 
 function M.r_app_command()
@@ -239,9 +214,6 @@ local function set_mode_bridge(bufnr)
   end
 
   vim.keymap.set("t", "<Esc>", function()
-    -- Always exit terminal mode, even if rarr is already in
-    -- normal mode (handles external terminal-mode entry that
-    -- bypassed set_mode). Esc is idempotent in vi.
     set_console_normal(bufnr)
   end, {
     buffer = bufnr,
@@ -251,7 +223,9 @@ local function set_mode_bridge(bufnr)
 
   for _, key in ipairs({ "i", "a", "I", "A" }) do
     vim.keymap.set("n", key, function()
-      set_mode(bufnr, "insert", key)
+      if M.mode ~= "insert" then
+        set_insert_mode(bufnr, key)
+      end
     end, {
       buffer = bufnr,
       desc = "Switch rarr and Neovim to insert mode",
@@ -323,13 +297,15 @@ local function set_mode_bridge(bufnr)
   vim.api.nvim_create_autocmd({ "BufEnter", "WinEnter" }, {
     buffer = bufnr,
     callback = function()
-      if M.mode == "insert" then
-        vim.schedule(function()
-          if vim.api.nvim_get_current_buf() == bufnr then
-            set_insert_mode(bufnr, nil)
-          end
-        end)
+      if M.mode ~= "insert" then
+        return
       end
+
+      vim.schedule(function()
+        if vim.api.nvim_get_current_buf() == bufnr then
+          set_insert_mode(bufnr, nil)
+        end
+      end)
     end,
   })
 end
@@ -343,9 +319,6 @@ function M.setup_console()
   set_mode_bridge(bufnr)
   M.set_toggle_keymaps(bufnr)
   focus_console(console_win())
-  -- Startup policy: showing the console always focuses it and
-  -- starts in insert mode. Toggle and window-leave also arm the
-  -- console for insert on return.
   set_insert_mode(bufnr, nil)
 end
 
