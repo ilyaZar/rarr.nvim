@@ -259,9 +259,9 @@ local function set_mode_bridge(bufnr)
   -- directly via chansend (reedline is in vi insert per bridge).
   local operators = {
     ["<C-;>"] = " <- ",
-    ["<C-:>"] = " |> ",
+    ["<C-S-;>"] = " |> ",
     ["<C-'>"] = " %||% ",
-    ['<C-">'] = " %in% ",
+    ["<C-S-'>"] = " %in% ",
   }
 
   for lhs, text in pairs(operators) do
