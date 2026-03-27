@@ -9,6 +9,7 @@ M.actions = {
     command = "RtestFile",
     map = "<C-t>",
     desc = "R package: test current file",
+    package = true,
     expr = function(bufnr)
       local path = current_test_file(bufnr)
       if not path then
@@ -28,6 +29,7 @@ M.actions = {
     expr = "devtools::document()",
     desc = "R package: document",
     task_name = "R package: document",
+    package = true,
   },
   {
     key = "load",
@@ -36,6 +38,7 @@ M.actions = {
     expr = "devtools::load_all()",
     desc = "R package: load",
     task_name = "R package: load",
+    package = true,
   },
   {
     key = "test",
@@ -44,6 +47,7 @@ M.actions = {
     expr = "devtools::test()",
     desc = "R package: test",
     task_name = "R package: test",
+    package = true,
   },
   {
     key = "build",
@@ -52,6 +56,7 @@ M.actions = {
     expr = "devtools::build()",
     desc = "R package: build",
     task_name = "R package: build",
+    package = true,
   },
   {
     key = "check",
@@ -60,12 +65,37 @@ M.actions = {
     expr = "devtools::check()",
     desc = "R package: check",
     task_name = "R package: check",
+    package = true,
   },
 }
 
 local action_map = {}
-for _, action in ipairs(M.actions) do
-  action_map[action.key] = action
+
+local function rebuild_action_map()
+  action_map = {}
+  for _, action in ipairs(M.actions) do
+    action_map[action.key] = action
+  end
+end
+
+rebuild_action_map()
+
+function M.configure(user_actions)
+  local by_key = {}
+  for i, action in ipairs(M.actions) do
+    by_key[action.key] = i
+  end
+
+  for _, ua in ipairs(user_actions) do
+    local idx = by_key[ua.key]
+    if idx then
+      M.actions[idx] = ua
+    else
+      M.actions[#M.actions + 1] = ua
+    end
+  end
+
+  rebuild_action_map()
 end
 
 local function current_path(bufnr)
@@ -146,7 +176,7 @@ function M.send(action_key)
     return
   end
 
-  if not M.require_package_root(0) then
+  if action.package and not M.require_package_root(0) then
     return
   end
 
@@ -164,23 +194,28 @@ function M.register_commands()
   end
 
   for _, action in ipairs(M.actions) do
-    vim.api.nvim_create_user_command(action.command, function()
-      M.send(action.key)
-    end, { desc = action.desc })
+    if action.command then
+      vim.api.nvim_create_user_command(action.command, function()
+        M.send(action.key)
+      end, { desc = action.desc })
+    end
   end
 
   vim.g.rarr_package_commands_registered = true
 end
 
-function M.set_keymaps(bufnr)
+function M.set_keymaps(bufnr, modes)
+  modes = modes or { "n" }
   for _, action in ipairs(M.actions) do
-    vim.keymap.set("n", action.map, function()
-      M.send(action.key)
-    end, {
-      buffer = bufnr,
-      desc = action.desc,
-      silent = true,
-    })
+    if action.map then
+      vim.keymap.set(modes, action.map, function()
+        M.send(action.key)
+      end, {
+        buffer = bufnr,
+        desc = action.desc,
+        silent = true,
+      })
+    end
   end
 end
 
