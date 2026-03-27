@@ -218,6 +218,8 @@ local function set_mode_bridge(bufnr)
     return
   end
 
+  local group = vim.api.nvim_create_augroup("RarrConsole", { clear = true })
+
   vim.keymap.set("t", "<Esc>", function()
     set_console_normal(bufnr)
   end, {
@@ -313,6 +315,7 @@ local function set_mode_bridge(bufnr)
   --                    if resume_insert, startinsert
 
   vim.api.nvim_create_autocmd("TermLeave", {
+    group = group,
     buffer = bufnr,
     callback = function()
       if M.resume_insert or M.mode == "normal" then
@@ -331,6 +334,7 @@ local function set_mode_bridge(bufnr)
   })
 
   vim.api.nvim_create_autocmd("WinLeave", {
+    group = group,
     buffer = bufnr,
     callback = function()
       if M.resume_insert or M.mode ~= "normal" then
@@ -342,6 +346,7 @@ local function set_mode_bridge(bufnr)
   })
 
   vim.api.nvim_create_autocmd({ "BufEnter", "WinEnter" }, {
+    group = group,
     buffer = bufnr,
     callback = function()
       if not M.resume_insert then
