@@ -2,7 +2,7 @@ local M = {}
 
 -- Authoritative console mode. Every transition updates this before
 -- sending keys to rarr. Read it to know the current mode without
--- guessing. Initialized to "normal" in setup_console().
+-- guessing. Startup explicitly sets insert mode in setup_console().
 M.mode = "normal"
 
 local DEFAULT_INSERT_COLOR = "#c9826b"
@@ -57,6 +57,12 @@ local function console_win()
   end
 end
 
+local function focus_console(win)
+  if win and vim.api.nvim_win_is_valid(win) then
+    vim.api.nvim_set_current_win(win)
+  end
+end
+
 local function send_console_key(bufnr, key)
   local job_id = console_job_id(bufnr)
   if job_id then
@@ -98,7 +104,7 @@ function M.set_console_winbar(mode)
   )
 end
 
-local function set_console_insert(bufnr, key)
+local function set_insert_mode(bufnr, key)
   if not bufnr or not vim.api.nvim_buf_is_valid(bufnr) then
     return
   end
@@ -117,6 +123,19 @@ local function set_console_insert(bufnr, key)
     send_console_key(bufnr, key)
   end
 
+  M.set_console_winbar("insert")
+end
+
+local function leave_console_insert(bufnr)
+  if not bufnr or not vim.api.nvim_buf_is_valid(bufnr) then
+    return
+  end
+
+  if M.mode ~= "insert" then
+    send_console_key(bufnr, "i")
+  end
+
+  M.mode = "insert"
   M.set_console_winbar("insert")
 end
 
@@ -156,7 +175,7 @@ local function set_mode(bufnr, mode, key)
   end
 
   if mode == "insert" then
-    set_console_insert(bufnr, key)
+    set_insert_mode(bufnr, key)
   end
 end
 
@@ -173,6 +192,7 @@ end
 function M.toggle_console()
   local win = console_win()
   if win then
+    leave_console_insert(vim.api.nvim_win_get_buf(win))
     vim.api.nvim_win_call(win, function()
       vim.cmd("hide")
     end)
@@ -186,15 +206,8 @@ function M.toggle_console()
     local cfg = require("r.config").get_config()
     local vertical = cfg.rconsole_width > 0 and "vertical " or ""
     vim.cmd("belowright " .. vertical .. "sbuffer " .. bufnr)
-    -- Restore the mode that was active before hide. Reedline's
-    -- mode is unchanged (process kept running), but Neovim always
-    -- reopens the terminal in normal mode. Re-apply M.mode to
-    -- sync Neovim's terminal state and winbar with reedline.
-    if M.mode == "insert" then
-      set_console_insert(bufnr, nil)
-    else
-      set_console_normal(bufnr)
-    end
+    focus_console(console_win())
+    set_insert_mode(bufnr, nil)
     return
   end
 
@@ -274,9 +287,9 @@ local function set_mode_bridge(bufnr)
     })
   end
 
-  -- Window navigation from terminal mode. Transitions to normal
-  -- (syncs M.mode + sends Esc to reedline) before navigating,
-  -- so the i/a/I/A bridge works correctly on return.
+  -- Window navigation leaves the console armed for insert on
+  -- return, whether we leave from terminal insert or console
+  -- normal mode.
   local ok_ss, smart_splits = pcall(require, "smart-splits")
   local nav = {
     ["<C-h>"] = ok_ss and smart_splits.move_cursor_left
@@ -290,24 +303,32 @@ local function set_mode_bridge(bufnr)
   }
 
   for lhs, move in pairs(nav) do
-    vim.keymap.set("t", lhs, function()
-      set_console_normal(bufnr)
+    local function navigate_away()
+      leave_console_insert(bufnr)
+      if vim.api.nvim_get_current_buf() == bufnr
+        and vim.api.nvim_get_mode().mode == "t"
+      then
+        vim.cmd("stopinsert")
+      end
       move()
-    end, {
+    end
+
+    vim.keymap.set({ "n", "t" }, lhs, navigate_away, {
       buffer = bufnr,
       desc = "Navigate window from console",
       silent = true,
     })
   end
 
-  -- Catch non-bridge exits from terminal mode (mouse click,
-  -- <C-\><C-n>, external stopinsert). Idempotent: skips if the
-  -- bridge already transitioned to normal.
-  vim.api.nvim_create_autocmd("TermLeave", {
+  vim.api.nvim_create_autocmd({ "BufEnter", "WinEnter" }, {
     buffer = bufnr,
     callback = function()
-      if M.mode ~= "normal" then
-        set_console_normal(bufnr)
+      if M.mode == "insert" then
+        vim.schedule(function()
+          if vim.api.nvim_get_current_buf() == bufnr then
+            set_insert_mode(bufnr, nil)
+          end
+        end)
       end
     end,
   })
@@ -321,10 +342,11 @@ function M.setup_console()
 
   set_mode_bridge(bufnr)
   M.set_toggle_keymaps(bufnr)
-  -- Force normal mode at startup regardless of M.mode's current
-  -- value. Reedline starts in insert mode by default, so we must
-  -- always send Esc to align both sides.
-  set_console_normal(bufnr)
+  focus_console(console_win())
+  -- Startup policy: showing the console always focuses it and
+  -- starts in insert mode. Toggle and window-leave also arm the
+  -- console for insert on return.
+  set_insert_mode(bufnr, nil)
 end
 
 return M
