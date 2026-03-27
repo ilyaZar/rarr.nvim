@@ -138,12 +138,14 @@ local function arm_insert_return(bufnr)
     return
   end
 
-  if M.mode ~= "insert" then
+  local was_normal = M.mode ~= "insert"
+  M.mode = "insert"
+  M.resume_insert = true
+
+  if was_normal then
     send_console_key(bufnr, "i")
   end
 
-  M.mode = "insert"
-  M.resume_insert = true
   M.set_console_winbar("insert")
 end
 
