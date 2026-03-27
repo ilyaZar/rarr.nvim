@@ -37,6 +37,20 @@ With [lazy.nvim](https://github.com/folke/lazy.nvim):
 `setup(opts)` mutates R.nvim's options table in place. Call it
 inside the R.nvim `opts` function.
 
+## R.nvim options set by rarr.nvim
+
+`setup()` sets the following R.nvim options. If you set
+`hl_term` or `esc_term` to conflicting values before calling
+`setup()`, you will get a warning.
+
+| Option           | Value                | Why                         |
+|------------------|----------------------|-----------------------------|
+| `R_app`          | `env ... rarr`       | launch rarr as R console    |
+| `R_cmd`          | `"R"`                | R.nvim's R command name     |
+| `bracketed_paste`| `true`               | safe code sending in vi mode|
+| `hl_term`        | `false`              | rarr renders its own ANSI   |
+| `esc_term`       | `false`              | Esc must reach reedline     |
+
 ## Default keymaps
 
 Package-dev keymaps are set on R file buffers (normal mode) and
