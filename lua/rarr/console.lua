@@ -3,6 +3,7 @@ local M = {}
 -- Intended rarr mode. Focus hooks may need to restore Neovim's
 -- terminal state to match it.
 M.mode = "normal"
+M.resume_insert = false
 
 local DEFAULT_INSERT_COLOR = "#c9826b"
 local DEFAULT_NORMAL_COLOR = "#81a1c1"
@@ -69,6 +70,14 @@ local function send_console_key(bufnr, key)
   end
 end
 
+local function stop_terminal_mode(bufnr)
+  if vim.api.nvim_get_current_buf() == bufnr
+    and vim.api.nvim_get_mode().mode == "t"
+  then
+    vim.cmd("stopinsert")
+  end
+end
+
 function M.set_console_winbar(mode)
   local win = console_win()
   if not win then
@@ -109,6 +118,7 @@ local function set_insert_mode(bufnr, key)
   end
 
   M.mode = "insert"
+  M.resume_insert = false
 
   if vim.api.nvim_get_current_buf() == bufnr
     and vim.api.nvim_get_mode().mode ~= "t"
@@ -123,7 +133,7 @@ local function set_insert_mode(bufnr, key)
   M.set_console_winbar("insert")
 end
 
-local function leave_console_insert(bufnr)
+local function arm_insert_return(bufnr)
   if not bufnr or not vim.api.nvim_buf_is_valid(bufnr) then
     return
   end
@@ -133,6 +143,7 @@ local function leave_console_insert(bufnr)
   end
 
   M.mode = "insert"
+  M.resume_insert = true
   M.set_console_winbar("insert")
 end
 
@@ -142,14 +153,10 @@ local function set_console_normal(bufnr)
   end
 
   M.mode = "normal"
+  M.resume_insert = false
 
   send_console_key(bufnr, "\027")
-
-  if vim.api.nvim_get_current_buf() == bufnr
-    and vim.api.nvim_get_mode().mode == "t"
-  then
-    vim.cmd("stopinsert")
-  end
+  stop_terminal_mode(bufnr)
 
   M.set_console_winbar("normal")
 end
@@ -167,7 +174,7 @@ end
 function M.toggle_console()
   local win = console_win()
   if win then
-    leave_console_insert(vim.api.nvim_win_get_buf(win))
+    arm_insert_return(vim.api.nvim_win_get_buf(win))
     vim.api.nvim_win_call(win, function()
       vim.cmd("hide")
     end)
@@ -278,12 +285,8 @@ local function set_mode_bridge(bufnr)
 
   for lhs, move in pairs(nav) do
     local function navigate_away()
-      leave_console_insert(bufnr)
-      if vim.api.nvim_get_current_buf() == bufnr
-        and vim.api.nvim_get_mode().mode == "t"
-      then
-        vim.cmd("stopinsert")
-      end
+      arm_insert_return(bufnr)
+      stop_terminal_mode(bufnr)
       move()
     end
 
@@ -294,16 +297,29 @@ local function set_mode_bridge(bufnr)
     })
   end
 
-  vim.api.nvim_create_autocmd({ "BufEnter", "WinEnter" }, {
+  vim.api.nvim_create_autocmd("TermLeave", {
     buffer = bufnr,
     callback = function()
-      if M.mode ~= "insert" then
+      if M.resume_insert or M.mode == "normal" then
         return
       end
 
+      set_console_normal(bufnr)
+    end,
+  })
+
+  vim.api.nvim_create_autocmd({ "BufEnter", "WinEnter" }, {
+    buffer = bufnr,
+    callback = function()
+      if not M.resume_insert then
+        return
+      end
+
+      M.resume_insert = false
+
       vim.schedule(function()
         if vim.api.nvim_get_current_buf() == bufnr then
-          set_insert_mode(bufnr, nil)
+          vim.cmd("startinsert")
         end
       end)
     end,
