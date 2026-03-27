@@ -5,6 +5,9 @@ local M = {}
 M.mode = "normal"
 M.resume_insert = false
 
+local saved_height = nil
+local saved_width = nil
+
 local DEFAULT_INSERT_COLOR = "#c9826b"
 local DEFAULT_NORMAL_COLOR = "#81a1c1"
 local DEFAULT_WINBAR_FG = "#1f2335"
@@ -176,6 +179,8 @@ end
 function M.toggle_console()
   local win = console_win()
   if win then
+    saved_height = vim.api.nvim_win_get_height(win)
+    saved_width = vim.api.nvim_win_get_width(win)
     arm_insert_return(vim.api.nvim_win_get_buf(win))
     vim.api.nvim_win_call(win, function()
       vim.cmd("hide")
@@ -190,7 +195,21 @@ function M.toggle_console()
     local cfg = require("r.config").get_config()
     local vertical = cfg.rconsole_width > 0 and "vertical " or ""
     vim.cmd("belowright " .. vertical .. "sbuffer " .. bufnr)
-    focus_console(console_win())
+
+    local reopen_win = console_win()
+    if vertical ~= "" then
+      local w = saved_width or cfg.rconsole_width
+      if w > 0 then
+        vim.api.nvim_win_set_width(reopen_win, w)
+      end
+    else
+      local h = saved_height or cfg.rconsole_height
+      if h > 0 then
+        vim.api.nvim_win_set_height(reopen_win, h)
+      end
+    end
+
+    focus_console(reopen_win)
     set_insert_mode(bufnr, nil)
     return
   end
