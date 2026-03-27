@@ -304,7 +304,25 @@ local function set_mode_bridge(bufnr)
         return
       end
 
-      set_console_normal(bufnr)
+      vim.schedule(function()
+        if vim.api.nvim_get_current_buf() == bufnr then
+          set_console_normal(bufnr)
+          return
+        end
+
+        arm_insert_return(bufnr)
+      end)
+    end,
+  })
+
+  vim.api.nvim_create_autocmd("WinLeave", {
+    buffer = bufnr,
+    callback = function()
+      if M.resume_insert or M.mode ~= "normal" then
+        return
+      end
+
+      arm_insert_return(bufnr)
     end,
   })
 
