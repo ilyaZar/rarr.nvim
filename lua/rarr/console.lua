@@ -199,19 +199,15 @@ function M.toggle_console()
 end
 
 function M.set_toggle_keymaps(bufnr)
-  if not require("rarr.package").is_package_context(bufnr) then
-    return
-  end
-
   for _, mode in ipairs({ "n", "t" }) do
     vim.keymap.set(mode, "<C-/>", M.toggle_console, {
       buffer = bufnr,
-      desc = "R package: toggle R console",
+      desc = "Toggle R console",
       silent = true,
     })
     vim.keymap.set(mode, "<C-_>", M.toggle_console, {
       buffer = bufnr,
-      desc = "R package: toggle R console",
+      desc = "Toggle R console",
       silent = true,
     })
   end
