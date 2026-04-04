@@ -50,12 +50,12 @@ M.actions = {
     package = true,
   },
   {
-    key = "build",
-    command = "Rbuild",
+    key = "install",
+    command = "Rinstall",
     map = "<C-S-b>",
-    expr = "devtools::build()",
-    desc = "R package: build",
-    task_name = "R package: build",
+    expr = "devtools::install()",
+    desc = "R package: install",
+    task_name = "R package: install",
     package = true,
   },
   {

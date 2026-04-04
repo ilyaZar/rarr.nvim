@@ -63,7 +63,7 @@ on the console buffer (terminal mode). They require a
 | `<C-S-d>`  | Document                | `devtools::document()`   |
 | `<C-b>`    | Load                    | `devtools::load_all()`   |
 | `<C-S-t>`  | Test                    | `devtools::test()`       |
-| `<C-S-b>`  | Build                   | `devtools::build()`      |
+| `<C-S-b>`  | Install                 | `devtools::install()`    |
 | `<C-S-e>`  | Check                   | `devtools::check()`      |
 | `<C-/>`    | Toggle console          | --                       |
 
