@@ -105,6 +105,11 @@ directory. Actions without it run anywhere R.nvim is active.
 is armed to restore insert mode on reopen. Window dimensions
 persist across toggle cycles.
 
+In non-R buffers inside an R package, the first cold toggle opens the
+first file under `R/` so `R.nvim` can start from a real R buffer. If
+the package has no files under `R/`, `rarr.nvim` creates
+`R/tmp_rarr.R` with a comment that it is safe to delete.
+
 ## How it works
 
 Three actors cooperate: R.nvim owns the terminal buffer lifecycle

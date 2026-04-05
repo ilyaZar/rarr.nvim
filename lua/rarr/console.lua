@@ -11,6 +11,8 @@ local saved_width = nil
 local DEFAULT_INSERT_COLOR = "#c9826b"
 local DEFAULT_NORMAL_COLOR = "#81a1c1"
 local DEFAULT_WINBAR_FG = "#1f2335"
+local TMP_RARR_COMMENT =
+  "# Artefact for starting rarr file when no R-files are present in R/. Can be deleted safely."
 
 local function lualine_bg(name)
   local ok, highlight = pcall(require, "lualine.highlight")
@@ -64,6 +66,94 @@ local function focus_console(win)
   if win and vim.api.nvim_win_is_valid(win) then
     vim.api.nvim_set_current_win(win)
   end
+end
+
+local function package_root(bufnr)
+  return require("rarr.context").package_root(bufnr)
+end
+
+local function package_r_path(bufnr)
+  local root = package_root(bufnr)
+  if not root then
+    return nil
+  end
+
+  local r_dir = vim.fs.joinpath(root, "R")
+  local paths = vim.fn.globpath(r_dir, "**/*.R", false, true)
+  if #paths > 0 then
+    return paths[1]
+  end
+
+  if vim.fn.isdirectory(r_dir) == 0 then
+    vim.fn.mkdir(r_dir, "p")
+  end
+
+  local tmp_path = vim.fs.joinpath(r_dir, "tmp_rarr.R")
+  if vim.fn.filereadable(tmp_path) == 0 then
+    vim.fn.writefile({ TMP_RARR_COMMENT }, tmp_path)
+  end
+  return tmp_path
+end
+
+local function package_r_buffer(bufnr)
+  local root = package_root(bufnr)
+  if not root then
+    return nil
+  end
+
+  for _, candidate in ipairs(vim.api.nvim_list_bufs()) do
+    if vim.api.nvim_buf_is_valid(candidate)
+      and vim.bo[candidate].buflisted
+      and require("rarr.context").is_r_filetype(candidate)
+      and package_root(candidate) == root
+    then
+      return candidate
+    end
+  end
+end
+
+local function edit_buffer(bufnr)
+  vim.cmd("buffer " .. bufnr)
+end
+
+local function edit_path(path)
+  vim.cmd("edit " .. vim.fn.fnameescape(path))
+end
+
+local function route_to_package_r_buffer(bufnr)
+  local existing = package_r_buffer(bufnr)
+  if existing then
+    edit_buffer(existing)
+    return vim.api.nvim_buf_get_name(existing), true
+  end
+
+  local path = package_r_path(bufnr)
+  if not path then
+    return nil
+  end
+
+  edit_path(path)
+  return path, false
+end
+
+local function start_when_ready(attempt)
+  attempt = attempt or 0
+  if (vim.g.R_Nvim_status or 0) >= 3 then
+    require("r.run").start_R("R")
+    return
+  end
+  if attempt >= 40 then
+    vim.notify(
+      "R.nvim is still initializing; press Ctrl+/ again from the R buffer",
+      vim.log.levels.WARN,
+      { title = "rarr.nvim" }
+    )
+    return
+  end
+
+  vim.defer_fn(function()
+    start_when_ready(attempt + 1)
+  end, 100)
 end
 
 local function send_console_key(bufnr, key)
@@ -214,7 +304,40 @@ function M.toggle_console()
     return
   end
 
-  require("r.run").start_R("R")
+  local context = require("rarr.context")
+  if context.is_r_filetype(0) then
+    require("r.run").start_R("R")
+    return
+  end
+
+  if context.is_package_context(0) then
+    local path, reused = route_to_package_r_buffer(0)
+    if not path then
+      vim.notify(
+        "R console could not find or create a package R bootstrap file",
+        vim.log.levels.WARN
+      )
+      return
+    end
+
+    local root = package_root(0)
+    local label = root and vim.fs.relpath(root, path) or vim.fs.basename(path)
+    vim.notify(
+      (reused and "Starting R from open package buffer "
+        or "First R start requires an R buffer; opened ") .. label,
+      vim.log.levels.INFO,
+      { title = "rarr.nvim", timeout = 10000 }
+    )
+    start_when_ready()
+    return
+  end
+
+  vim.notify(
+    "R console starts only from R buffers or inside an R package",
+    vim.log.levels.WARN
+  )
+  return
+
 end
 
 function M.set_toggle_keymaps(bufnr)

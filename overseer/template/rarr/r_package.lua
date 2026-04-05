@@ -4,21 +4,17 @@
 
 return {
   condition = {
-    filetype = { "r", "rmd", "quarto" },
+    filetype = require("rarr.context").r_filetypes,
   },
   generator = function(opts)
+    local context = require("rarr.context")
     local package = require("rarr.package")
-    local description = vim.fs.find("DESCRIPTION", {
-      upward = true,
-      path = opts.dir,
-      type = "file",
-    })[1]
+    local cwd = context.package_root(opts.dir)
 
-    if not description then
+    if not cwd then
       return {}
     end
 
-    local cwd = vim.fs.dirname(description)
     local templates = {}
     for _, action in ipairs(package.actions) do
       if action.task_name then
