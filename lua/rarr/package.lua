@@ -1,5 +1,7 @@
 local M = {}
 
+local context = require("rarr.context")
+
 local current_test_file
 local quoted_r_string
 
@@ -98,24 +100,6 @@ function M.configure(user_actions)
   rebuild_action_map()
 end
 
-local function current_path(bufnr)
-  local path = vim.api.nvim_buf_get_name(bufnr or 0)
-  if path == "" then
-    return vim.uv.cwd()
-  end
-
-  local term_cwd = path:match("^term://(.-)//%d+:")
-  if term_cwd then
-    return term_cwd
-  end
-
-  if vim.fn.isdirectory(path) == 1 then
-    return path
-  end
-
-  return vim.fs.dirname(path)
-end
-
 current_test_file = function(bufnr)
   local path = vim.api.nvim_buf_get_name(bufnr or 0)
   if path == "" then
@@ -142,20 +126,8 @@ local function action_expr(action, bufnr)
   return action.expr
 end
 
-function M.package_root(bufnr)
-  local found = vim.fs.find("DESCRIPTION", {
-    upward = true,
-    path = current_path(bufnr),
-    type = "file",
-  })[1]
-
-  if found then
-    return vim.fs.dirname(found)
-  end
-end
-
 function M.require_package_root(bufnr)
-  local root = M.package_root(bufnr)
+  local root = context.package_root(bufnr)
   if root then
     return root
   end
@@ -164,10 +136,6 @@ function M.require_package_root(bufnr)
     "No DESCRIPTION found for current R package",
     vim.log.levels.WARN
   )
-end
-
-function M.is_package_context(bufnr)
-  return M.package_root(bufnr) ~= nil
 end
 
 function M.send(action_key)

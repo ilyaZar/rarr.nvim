@@ -33,6 +33,7 @@ end
 --- @param config table|nil  rarr-specific config (optional)
 function M.setup(opts, config)
   config = config or {}
+  local context = require("rarr.context")
   local package = require("rarr.package")
   local console = require("rarr.console")
   local debug = require("rarr.debug")
@@ -57,6 +58,22 @@ function M.setup(opts, config)
   opts.hl_term = false
   opts.esc_term = false
   opts.hook = opts.hook or {}
+
+  local group = vim.api.nvim_create_augroup("RarrPackageToggle", { clear = true })
+
+  vim.api.nvim_create_autocmd("BufEnter", {
+    group = group,
+    callback = function(args)
+      local bufnr = args.buf
+      if context.is_r_filetype(bufnr) then
+        return
+      end
+      if not context.is_package_context(bufnr) then
+        return
+      end
+      console.set_toggle_keymaps(bufnr)
+    end,
+  })
 
   opts.hook.on_filetype = function()
     if prev_on_filetype then
