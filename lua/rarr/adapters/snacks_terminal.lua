@@ -51,6 +51,11 @@ function M.setup(opts)
         return handle.win
       end
     end,
+    buf = function(handle)
+      if handle and handle.buf_valid and handle:buf_valid() then
+        return handle.buf
+      end
+    end,
     resize = function(handle, ctx)
       if not (handle and handle.win_valid and handle:win_valid()) then
         return

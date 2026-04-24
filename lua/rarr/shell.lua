@@ -94,6 +94,45 @@ local function shell_win()
   return call(a.win, handle)
 end
 
+local function shell_buf()
+  local a = adapter()
+  local bufnr = call(a.buf, handle)
+  if bufnr and vim.api.nvim_buf_is_valid(bufnr) then
+    return bufnr
+  end
+
+  local win = shell_win()
+  if win and vim.api.nvim_win_is_valid(win) then
+    return vim.api.nvim_win_get_buf(win)
+  end
+end
+
+local function set_resize_keymaps(bufnr)
+  if not bufnr or not vim.api.nvim_buf_is_valid(bufnr) then
+    return
+  end
+
+  local ok_ss, smart_splits = pcall(require, "smart-splits")
+  local resize = {
+    ["<C-M-Left>"] = ok_ss and smart_splits.resize_left
+      or function() vim.cmd("vertical resize -2") end,
+    ["<C-M-Right>"] = ok_ss and smart_splits.resize_right
+      or function() vim.cmd("vertical resize +2") end,
+    ["<C-M-Up>"] = ok_ss and smart_splits.resize_up
+      or function() vim.cmd("resize -2") end,
+    ["<C-M-Down>"] = ok_ss and smart_splits.resize_down
+      or function() vim.cmd("resize +2") end,
+  }
+
+  for lhs, resize_window in pairs(resize) do
+    vim.keymap.set({ "n", "t" }, lhs, resize_window, {
+      buffer = bufnr,
+      desc = "Resize shell terminal",
+      silent = true,
+    })
+  end
+end
+
 function M.is_visible()
   local a = adapter()
   if type(a.is_visible) == "function" then
@@ -153,6 +192,7 @@ function M.toggle()
   if win then
     slot.resize_window(win)
   end
+  set_resize_keymaps(shell_buf())
   slot.set_active("shell")
 end
 
@@ -210,6 +250,7 @@ function M.setup_builtin_buffer(bufnr)
     desc = "Send EOF to shell terminal",
     silent = true,
   })
+  set_resize_keymaps(bufnr)
 end
 
 return M

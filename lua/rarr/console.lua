@@ -457,6 +457,25 @@ local function set_mode_bridge(bufnr)
     })
   end
 
+  local resize = {
+    ["<C-M-Left>"] = ok_ss and smart_splits.resize_left
+      or function() vim.cmd("vertical resize -2") end,
+    ["<C-M-Right>"] = ok_ss and smart_splits.resize_right
+      or function() vim.cmd("vertical resize +2") end,
+    ["<C-M-Up>"] = ok_ss and smart_splits.resize_up
+      or function() vim.cmd("resize -2") end,
+    ["<C-M-Down>"] = ok_ss and smart_splits.resize_down
+      or function() vim.cmd("resize +2") end,
+  }
+
+  for lhs, resize_window in pairs(resize) do
+    vim.keymap.set({ "n", "t" }, lhs, resize_window, {
+      buffer = bufnr,
+      desc = "Resize window from console",
+      silent = true,
+    })
+  end
+
   -- Autocmd firing order for each user action:
   --
   -- <Esc> (bridge):    set_console_normal runs directly;
