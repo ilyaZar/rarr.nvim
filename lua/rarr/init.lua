@@ -43,7 +43,7 @@ function M.setup(opts, config)
   local prev_on_filetype = opts.hook and opts.hook.on_filetype
   local prev_after_r_start = opts.hook and opts.hook.after_R_start
 
-  slot.configure(opts)
+  slot.configure(opts, config.terminal_slot)
 
   if config.actions then
     package.configure(config.actions)

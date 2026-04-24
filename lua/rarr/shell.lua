@@ -38,7 +38,7 @@ local function builtin_show(ctx)
   vim.bo[bufnr].bufhidden = "hide"
   vim.bo[bufnr].filetype = "rarr_shell"
 
-  local win = slot.open_buffer(bufnr)
+  local win = slot.open_buffer(bufnr, "shell")
   if not win then
     return nil
   end
@@ -150,7 +150,7 @@ function M.hide()
 
   local slot = require("rarr.terminal_slot")
   local win = shell_win()
-  slot.remember_window(win)
+  slot.remember_window(win, "shell")
 
   local a = adapter()
   call(a.hide, handle)
@@ -190,7 +190,7 @@ function M.toggle()
 
   local win = shell_win()
   if win then
-    slot.resize_window(win)
+    slot.normalize_window(win, "shell")
   end
   set_resize_keymaps(shell_buf())
   slot.set_active("shell")
