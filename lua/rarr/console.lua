@@ -280,7 +280,7 @@ function M.hide()
     return
   end
 
-  slot.remember_window(win)
+  slot.remember_window(win, "r")
   arm_insert_return(vim.api.nvim_win_get_buf(win))
   vim.api.nvim_win_call(win, function()
     vim.cmd("hide")
@@ -314,7 +314,7 @@ function M.toggle_console()
   -- R.nvim's reopen_win uses vnew which orphans empty buffers.
   local bufnr = console_bufnr()
   if bufnr and vim.api.nvim_buf_is_valid(bufnr) then
-    local reopen_win = slot.open_buffer(bufnr)
+    local reopen_win = slot.open_buffer(bufnr, "r")
     focus_console(reopen_win)
     set_insert_mode(bufnr, nil)
     slot.set_active("r")
@@ -558,7 +558,7 @@ function M.setup_console()
   end
 
   local win = console_win()
-  slot.remember_window(win)
+  win = slot.normalize_window(win, "r") or win
   slot.set_active("r")
   focus_console(win)
   set_insert_mode(bufnr, nil)
