@@ -37,12 +37,21 @@ function M.setup(opts, config)
   local package = require("rarr.package")
   local console = require("rarr.console")
   local debug = require("rarr.debug")
+  local slot = require("rarr.terminal_slot")
+  local shell = nil
 
   local prev_on_filetype = opts.hook and opts.hook.on_filetype
   local prev_after_r_start = opts.hook and opts.hook.after_R_start
 
+  slot.configure(opts)
+
   if config.actions then
     package.configure(config.actions)
+  end
+
+  if config.shell then
+    shell = require("rarr.shell")
+    shell.setup(config.shell)
   end
 
   package.register_commands()
@@ -82,6 +91,9 @@ function M.setup(opts, config)
     local bufnr = vim.api.nvim_get_current_buf()
     package.set_keymaps(bufnr)
     console.set_toggle_keymaps(bufnr)
+    if shell then
+      shell.set_keymaps(bufnr)
+    end
     debug.set_keymaps(bufnr)
   end
 
