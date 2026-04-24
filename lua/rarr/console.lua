@@ -1,12 +1,10 @@
 local M = {}
+local slot = require("rarr.terminal_slot")
 
 -- Intended rarr mode. Focus hooks may need to restore Neovim's
 -- terminal state to match it.
 M.mode = "normal"
 M.resume_insert = false
-
-local saved_height = nil
-local saved_width = nil
 
 local DEFAULT_INSERT_COLOR = "#c9826b"
 local DEFAULT_NORMAL_COLOR = "#81a1c1"
@@ -136,9 +134,25 @@ local function route_to_package_r_buffer(bufnr)
   return path, false
 end
 
+local function sync_r_config_to_slot()
+  local ok, r_config = pcall(require, "r.config")
+  if not ok then
+    return
+  end
+
+  local cfg = r_config.get_config()
+  local ctx = slot.context()
+  if ctx.position == "right" then
+    cfg.rconsole_width = ctx.width
+  else
+    cfg.rconsole_height = ctx.height
+  end
+end
+
 local function start_when_ready(attempt)
   attempt = attempt or 0
   if (vim.g.R_Nvim_status or 0) >= 3 then
+    sync_r_config_to_slot()
     require("r.run").start_R("R")
     return
   end
@@ -256,6 +270,24 @@ local function set_console_normal(bufnr)
   M.set_console_winbar("normal")
 end
 
+function M.is_visible()
+  return console_win() ~= nil
+end
+
+function M.hide()
+  local win = console_win()
+  if not win then
+    return
+  end
+
+  slot.remember_window(win)
+  arm_insert_return(vim.api.nvim_win_get_buf(win))
+  vim.api.nvim_win_call(win, function()
+    vim.cmd("hide")
+  end)
+  slot.clear_active("r")
+end
+
 function M.r_app_command()
   local colors = palette()
   return table.concat({
@@ -269,43 +301,29 @@ end
 function M.toggle_console()
   local win = console_win()
   if win then
-    saved_height = vim.api.nvim_win_get_height(win)
-    saved_width = vim.api.nvim_win_get_width(win)
-    arm_insert_return(vim.api.nvim_win_get_buf(win))
-    vim.api.nvim_win_call(win, function()
-      vim.cmd("hide")
-    end)
+    M.hide()
     return
+  end
+
+  local ok_shell, shell = pcall(require, "rarr.shell")
+  if ok_shell and shell.is_visible and shell.is_visible() then
+    shell.hide()
   end
 
   -- If R is running and the buffer exists, reopen it directly.
   -- R.nvim's reopen_win uses vnew which orphans empty buffers.
   local bufnr = console_bufnr()
   if bufnr and vim.api.nvim_buf_is_valid(bufnr) then
-    local cfg = require("r.config").get_config()
-    local vertical = cfg.rconsole_width > 0 and "vertical " or ""
-    vim.cmd("belowright " .. vertical .. "sbuffer " .. bufnr)
-
-    local reopen_win = console_win()
-    if vertical ~= "" then
-      local w = saved_width or cfg.rconsole_width
-      if w > 0 then
-        vim.api.nvim_win_set_width(reopen_win, w)
-      end
-    else
-      local h = saved_height or cfg.rconsole_height
-      if h > 0 then
-        vim.api.nvim_win_set_height(reopen_win, h)
-      end
-    end
-
+    local reopen_win = slot.open_buffer(bufnr)
     focus_console(reopen_win)
     set_insert_mode(bufnr, nil)
+    slot.set_active("r")
     return
   end
 
   local context = require("rarr.context")
   if context.is_r_filetype(0) then
+    sync_r_config_to_slot()
     require("r.run").start_R("R")
     return
   end
@@ -515,7 +533,15 @@ function M.setup_console()
   set_mode_bridge(bufnr)
   require("rarr.package").set_keymaps(bufnr, { "t" })
   M.set_toggle_keymaps(bufnr)
-  focus_console(console_win())
+  local ok_shell, shell = pcall(require, "rarr.shell")
+  if ok_shell and shell.set_keymaps then
+    shell.set_keymaps(bufnr)
+  end
+
+  local win = console_win()
+  slot.remember_window(win)
+  slot.set_active("r")
+  focus_console(win)
   set_insert_mode(bufnr, nil)
 end
 

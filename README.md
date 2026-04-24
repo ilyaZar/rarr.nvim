@@ -110,13 +110,71 @@ first file under `R/` so `R.nvim` can start from a real R buffer. If
 the package has no files under `R/`, `rarr.nvim` creates
 `R/tmp_rarr.R` with a comment that it is safe to delete.
 
+## Shell terminal overlay
+
+`rarr.nvim` can also coordinate a regular shell terminal with the R
+console so both occupy the same terminal slot. This is optional:
+`rarr.nvim` does not try to replace your terminal plugin. Exact
+overlay behavior requires a slot-aware adapter that can show, hide,
+inspect, and resize the terminal window.
+
+Recommended LazyVim/Snacks setup:
+
+```lua
+require("rarr").setup(opts, {
+  shell = {
+    maps = { "<C-S-/>", "<C-?>" },
+    adapter = require("rarr.adapters.snacks_terminal").setup({
+      cwd = function()
+        return LazyVim.root()
+      end,
+    }),
+  },
+})
+```
+
+Basic fallback setup, using `vim.o.shell` in a plain Neovim terminal:
+
+```lua
+require("rarr").setup(opts, {
+  shell = {
+    maps = { "<C-S-/>", "<C-?>" },
+  },
+})
+```
+
+The fallback `<C-?>` map is useful because many terminal stacks encode
+`Ctrl+Shift+/` that way. If you use another terminal plugin, provide
+the same adapter contract:
+
+```lua
+require("rarr").setup(opts, {
+  shell = {
+    maps = { "<C-S-/>", "<C-?>" },
+    adapter = {
+      show = function(ctx, handle) return handle end,
+      hide = function(handle) end,
+      is_visible = function(handle) return false end,
+      win = function(handle) return nil end,
+      resize = function(handle, ctx) end,
+    },
+  },
+})
+```
+
+The `ctx` table contains `position`, `height`, `width`, `cwd`, and
+`shell`. Adapters that ignore `ctx.height`/`ctx.width` still work, but
+they cannot guarantee exact overlay with the R console.
+
 ## How it works
 
 Three actors cooperate: R.nvim owns the terminal buffer lifecycle
 and code sending. rarr.nvim owns the mode bridge, winbar, and
-keymaps. rarr (Rust) owns vi mode, prompt rendering, and the R
-session. Communication happens through env vars at startup, key
-events at runtime, and bracketed paste for code sending.
+keymaps. Optional shell adapters own regular terminal UX while
+rarr.nvim only coordinates the shared terminal slot. rarr (Rust)
+owns vi mode, prompt rendering, and the R session. Communication
+happens through env vars at startup, key events at runtime, and
+bracketed paste for code sending.
 
 ## License
 
