@@ -67,6 +67,30 @@ on the console buffer (terminal mode). They require a
 | `<C-S-e>`  | Check                   | `devtools::check()`      |
 | `<C-/>`    | Toggle console          | --                       |
 
+Console and shell toggle maps are configured from one top-level
+`keys` table:
+
+```lua
+require("rarr").setup(opts, {
+  keys = {
+    console = {
+      maps = { "<C-/>", "<C-_>" },
+    },
+    shell = {
+      maps = { "<C-S-/>", "<C-?>" },
+    },
+  },
+})
+```
+
+If the same physical key is assigned to both actors, `rarr.nvim`
+shows a 20 second warning at setup and installs a warning mapping on
+that key. Pressing it does not toggle either terminal; it explains the
+conflict and asks you to configure different maps under
+`keys.console.maps` and `keys.shell.maps`.
+
+Set an actor's `maps` to `{}` or `false` to leave its toggle unmapped.
+
 ## Custom actions
 
 Pass a second table to `setup()` to add or override actions:
@@ -122,8 +146,12 @@ Recommended LazyVim/Snacks setup:
 
 ```lua
 require("rarr").setup(opts, {
+  keys = {
+    shell = {
+      maps = { "<C-S-/>", "<C-?>" },
+    },
+  },
   shell = {
-    maps = { "<C-S-/>", "<C-?>" },
     adapter = require("rarr.adapters.snacks_terminal").setup({
       cwd = function()
         return LazyVim.root()
@@ -137,9 +165,12 @@ Basic fallback setup, using `vim.o.shell` in a plain Neovim terminal:
 
 ```lua
 require("rarr").setup(opts, {
-  shell = {
-    maps = { "<C-S-/>", "<C-?>" },
+  keys = {
+    shell = {
+      maps = { "<C-S-/>", "<C-?>" },
+    },
   },
+  shell = {},
 })
 ```
 
@@ -149,8 +180,12 @@ the same adapter contract:
 
 ```lua
 require("rarr").setup(opts, {
+  keys = {
+    shell = {
+      maps = { "<C-S-/>", "<C-?>" },
+    },
+  },
   shell = {
-    maps = { "<C-S-/>", "<C-?>" },
     adapter = {
       show = function(ctx, handle) return handle end,
       hide = function(handle) end,

@@ -359,18 +359,13 @@ function M.toggle_console()
 end
 
 function M.set_toggle_keymaps(bufnr)
-  for _, mode in ipairs({ "n", "t" }) do
-    vim.keymap.set(mode, "<C-/>", M.toggle_console, {
-      buffer = bufnr,
-      desc = "Toggle R console",
-      silent = true,
-    })
-    vim.keymap.set(mode, "<C-_>", M.toggle_console, {
-      buffer = bufnr,
-      desc = "Toggle R console",
-      silent = true,
-    })
-  end
+  require("rarr.config").set_actor_keymaps(
+    "console",
+    { "n", "t" },
+    bufnr,
+    M.toggle_console,
+    "Toggle R console"
+  )
 end
 
 local function set_mode_bridge(bufnr)
