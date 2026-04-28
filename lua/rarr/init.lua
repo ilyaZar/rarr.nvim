@@ -38,12 +38,14 @@ function M.setup(opts, config)
   local console = require("rarr.console")
   local debug = require("rarr.debug")
   local slot = require("rarr.terminal_slot")
+  local rarr_config = require("rarr.config")
   local shell = nil
 
   local prev_on_filetype = opts.hook and opts.hook.on_filetype
   local prev_after_r_start = opts.hook and opts.hook.after_R_start
 
   slot.configure(opts, config.terminal_slot)
+  rarr_config.setup(config)
 
   if config.actions then
     package.configure(config.actions)

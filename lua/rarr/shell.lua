@@ -1,13 +1,13 @@
 local M = {}
 
 local config = {
-  maps = {},
   adapter = nil,
   cwd = nil,
 }
 
 local handle = nil
 local group = nil
+local initialized = false
 
 local function call(fn, ...)
   if type(fn) == "function" then
@@ -197,30 +197,27 @@ function M.toggle()
 end
 
 function M.set_keymaps(bufnr)
-  if not config.maps or vim.tbl_isempty(config.maps) then
+  if not initialized then
     return
   end
 
-  for _, mode in ipairs({ "n", "t" }) do
-    for _, lhs in ipairs(config.maps) do
-      vim.keymap.set(mode, lhs, M.toggle, {
-        buffer = bufnr,
-        desc = "Toggle shell terminal",
-        silent = true,
-      })
-    end
-  end
+  require("rarr.config").set_actor_keymaps(
+    "shell",
+    { "n", "t" },
+    bufnr,
+    M.toggle,
+    "Toggle shell terminal"
+  )
 end
 
 function M.setup(shell_config)
   shell_config = shell_config or {}
   config = vim.tbl_deep_extend("force", {
-    maps = {},
     adapter = nil,
     cwd = nil,
   }, shell_config)
-  config.maps = config.maps or {}
   handle = nil
+  initialized = true
 
   if group then
     pcall(vim.api.nvim_del_augroup_by_id, group)
