@@ -203,10 +203,10 @@ they cannot guarantee exact overlay with the R console.
 
 ### `Ctrl+Shift+/` sends Backspace in tmux
 
-In Ghostty inside tmux, some keyboard/layout paths can decode
-`Ctrl+Shift+/` as Backspace before Neovim receives it. In normal mode
-this looks like the cursor moving one character left instead of
-opening the shell terminal.
+When Neovim runs inside tmux in Ghostty, some keyboard/layout paths can
+encode `Ctrl+Shift+/` as DEL/Backspace before Neovim receives it. In
+normal mode this looks like the cursor moving one character left instead
+of opening the shell terminal.
 
 Configure Ghostty to send a CSI-u sequence for that chord:
 
