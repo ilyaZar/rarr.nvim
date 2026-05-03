@@ -133,6 +133,30 @@ local function set_resize_keymaps(bufnr)
   end
 end
 
+local function set_console_toggle_keymaps(bufnr)
+  if not bufnr or not vim.api.nvim_buf_is_valid(bufnr) then
+    return
+  end
+
+  local ok_console, console = pcall(require, "rarr.console")
+  if not ok_console then
+    return
+  end
+
+  require("rarr.config").set_actor_keymaps(
+    "console",
+    { "n", "t" },
+    bufnr,
+    console.toggle_console,
+    "Toggle R console"
+  )
+end
+
+local function set_shell_buffer_keymaps(bufnr)
+  set_resize_keymaps(bufnr)
+  set_console_toggle_keymaps(bufnr)
+end
+
 function M.is_visible()
   local a = adapter()
   if type(a.is_visible) == "function" then
@@ -192,7 +216,7 @@ function M.toggle()
   if win then
     slot.normalize_window(win, "shell")
   end
-  set_resize_keymaps(shell_buf())
+  set_shell_buffer_keymaps(shell_buf())
   slot.set_active("shell")
 end
 
@@ -247,7 +271,7 @@ function M.setup_builtin_buffer(bufnr)
     desc = "Send EOF to shell terminal",
     silent = true,
   })
-  set_resize_keymaps(bufnr)
+  set_shell_buffer_keymaps(bufnr)
 end
 
 return M
