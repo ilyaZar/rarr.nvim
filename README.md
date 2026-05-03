@@ -67,6 +67,30 @@ on the console buffer (terminal mode). They require a
 | `<C-S-e>`  | Check                   | `devtools::check()`      |
 | `<C-/>`    | Toggle console          | --                       |
 
+Console and shell toggle maps are configured from one top-level
+`keys` table:
+
+```lua
+require("rarr").setup(opts, {
+  keys = {
+    console = {
+      maps = { "<C-/>", "<C-_>" },
+    },
+    shell = {
+      maps = { "<C-S-/>", "<C-?>" },
+    },
+  },
+})
+```
+
+If the same physical key is assigned to both actors, `rarr.nvim`
+shows a 20 second warning at setup and installs a warning mapping on
+that key. Pressing it does not toggle either terminal; it explains the
+conflict and asks you to configure different maps under
+`keys.console.maps` and `keys.shell.maps`.
+
+Set an actor's `maps` to `{}` or `false` to leave its toggle unmapped.
+
 ## Custom actions
 
 Pass a second table to `setup()` to add or override actions:
@@ -110,13 +134,99 @@ first file under `R/` so `R.nvim` can start from a real R buffer. If
 the package has no files under `R/`, `rarr.nvim` creates
 `R/tmp_rarr.R` with a comment that it is safe to delete.
 
+## Shell terminal overlay
+
+`rarr.nvim` can also coordinate a regular shell terminal with the R
+console so both occupy the same terminal slot. This is optional:
+`rarr.nvim` does not try to replace your terminal plugin. Exact
+overlay behavior requires a slot-aware adapter that can show, hide,
+inspect, and resize the terminal window.
+
+Recommended LazyVim/Snacks setup:
+
+```lua
+require("rarr").setup(opts, {
+  keys = {
+    shell = {
+      maps = { "<C-S-/>", "<C-?>" },
+    },
+  },
+  shell = {
+    adapter = require("rarr.adapters.snacks_terminal").setup({
+      cwd = function()
+        return LazyVim.root()
+      end,
+    }),
+  },
+})
+```
+
+Basic fallback setup, using `vim.o.shell` in a plain Neovim terminal:
+
+```lua
+require("rarr").setup(opts, {
+  keys = {
+    shell = {
+      maps = { "<C-S-/>", "<C-?>" },
+    },
+  },
+  shell = {},
+})
+```
+
+If you use another terminal plugin, provide the same adapter contract:
+
+```lua
+require("rarr").setup(opts, {
+  keys = {
+    shell = {
+      maps = { "<C-S-/>", "<C-?>" },
+    },
+  },
+  shell = {
+    adapter = {
+      show = function(ctx, handle) return handle end,
+      hide = function(handle) end,
+      is_visible = function(handle) return false end,
+      win = function(handle) return nil end,
+      resize = function(handle, ctx) end,
+    },
+  },
+})
+```
+
+The `ctx` table contains `position`, `height`, `width`, `cwd`, and
+`shell`. Adapters that ignore `ctx.height`/`ctx.width` still work, but
+they cannot guarantee exact overlay with the R console.
+
+## Troubleshooting
+
+### `Ctrl+Shift+/` sends Backspace in tmux
+
+In Ghostty inside tmux, some keyboard/layout paths can decode
+`Ctrl+Shift+/` as Backspace before Neovim receives it. In normal mode
+this looks like the cursor moving one character left instead of
+opening the shell terminal.
+
+Configure Ghostty to send a CSI-u sequence for that chord:
+
+```conf
+keybind = ctrl+shift+/=csi:47;6u
+```
+
+Reload Ghostty or open a new Ghostty window, then start a fresh tmux
+session. Neovim will receive the key as `<C-S-/>`, so the default
+shell terminal mapping works inside tmux.
+
 ## How it works
 
 Three actors cooperate: R.nvim owns the terminal buffer lifecycle
 and code sending. rarr.nvim owns the mode bridge, winbar, and
-keymaps. rarr (Rust) owns vi mode, prompt rendering, and the R
-session. Communication happens through env vars at startup, key
-events at runtime, and bracketed paste for code sending.
+keymaps. Optional shell adapters own regular terminal UX while
+rarr.nvim only coordinates the shared terminal slot. rarr (Rust)
+owns vi mode, prompt rendering, and the R session. Communication
+happens through env vars at startup, key events at runtime, and
+bracketed paste for code sending.
 
 ## License
 
