@@ -299,6 +299,7 @@ function M.r_app_command()
 end
 
 function M.toggle_console()
+  local source_bufnr = vim.api.nvim_get_current_buf()
   local win = console_win()
   if win then
     M.hide()
@@ -322,14 +323,14 @@ function M.toggle_console()
   end
 
   local context = require("rarr.context")
-  if context.is_r_filetype(0) then
+  if context.is_r_filetype(source_bufnr) then
     sync_r_config_to_slot()
     require("r.run").start_R("R")
     return
   end
 
-  if context.is_package_context(0) then
-    local path, reused = route_to_package_r_buffer(0)
+  if context.is_package_context(source_bufnr) then
+    local path, reused = route_to_package_r_buffer(source_bufnr)
     if not path then
       vim.notify(
         "R console could not find or create a package R bootstrap file",
@@ -338,7 +339,7 @@ function M.toggle_console()
       return
     end
 
-    local root = package_root(0)
+    local root = package_root(source_bufnr)
     local label = root and vim.fs.relpath(root, path) or vim.fs.basename(path)
     vim.notify(
       (reused and "Starting R from open package buffer "
