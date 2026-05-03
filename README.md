@@ -174,9 +174,7 @@ require("rarr").setup(opts, {
 })
 ```
 
-The fallback `<C-?>` map is useful because many terminal stacks encode
-`Ctrl+Shift+/` that way. If you use another terminal plugin, provide
-the same adapter contract:
+If you use another terminal plugin, provide the same adapter contract:
 
 ```lua
 require("rarr").setup(opts, {
@@ -200,6 +198,25 @@ require("rarr").setup(opts, {
 The `ctx` table contains `position`, `height`, `width`, `cwd`, and
 `shell`. Adapters that ignore `ctx.height`/`ctx.width` still work, but
 they cannot guarantee exact overlay with the R console.
+
+## Troubleshooting
+
+### `Ctrl+Shift+/` sends Backspace in tmux
+
+In Ghostty inside tmux, some keyboard/layout paths can decode
+`Ctrl+Shift+/` as Backspace before Neovim receives it. In normal mode
+this looks like the cursor moving one character left instead of
+opening the shell terminal.
+
+Configure Ghostty to send a CSI-u sequence for that chord:
+
+```conf
+keybind = ctrl+shift+/=csi:47;6u
+```
+
+Reload Ghostty or open a new Ghostty window, then start a fresh tmux
+session. Neovim will receive the key as `<C-S-/>`, so the default
+shell terminal mapping works inside tmux.
 
 ## How it works
 
