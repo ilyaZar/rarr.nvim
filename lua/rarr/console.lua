@@ -118,6 +118,22 @@ local function edit_path(path)
   vim.cmd("edit " .. vim.fn.fnameescape(path))
 end
 
+local function empty_listed_buffer()
+  for _, candidate in ipairs(vim.api.nvim_list_bufs()) do
+    if vim.api.nvim_buf_is_valid(candidate)
+      and vim.api.nvim_buf_is_loaded(candidate)
+      and vim.bo[candidate].buflisted
+      and vim.bo[candidate].buftype == ""
+      and not vim.bo[candidate].modified
+      and vim.api.nvim_buf_get_name(candidate) == ""
+      and vim.api.nvim_buf_line_count(candidate) == 1
+      and vim.api.nvim_buf_get_lines(candidate, 0, 1, false)[1] == ""
+    then
+      return candidate
+    end
+  end
+end
+
 local function route_to_package_r_buffer(bufnr)
   local existing = package_r_buffer(bufnr)
   if existing then
@@ -128,6 +144,13 @@ local function route_to_package_r_buffer(bufnr)
   local path = package_r_path(bufnr)
   if not path then
     return nil
+  end
+
+  if not vim.bo[bufnr].buflisted then
+    local empty = empty_listed_buffer()
+    if empty then
+      vim.bo[empty].buflisted = false
+    end
   end
 
   edit_path(path)
@@ -329,7 +352,8 @@ function M.toggle_console()
     return
   end
 
-  if context.is_package_context(source_bufnr) then
+  local root = package_root(source_bufnr)
+  if root then
     local path, reused = route_to_package_r_buffer(source_bufnr)
     if not path then
       vim.notify(
@@ -339,7 +363,6 @@ function M.toggle_console()
       return
     end
 
-    local root = package_root(source_bufnr)
     local label = root and vim.fs.relpath(root, path) or vim.fs.basename(path)
     vim.notify(
       (reused and "Starting R from open package buffer "
