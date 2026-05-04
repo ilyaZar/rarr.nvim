@@ -545,6 +545,9 @@ function M.setup_console()
     return
   end
 
+  M.mode = "insert"
+  M.resume_insert = false
+
   set_mode_bridge(bufnr)
   require("rarr.package").set_keymaps(bufnr, { "t" })
   M.set_toggle_keymaps(bufnr)
