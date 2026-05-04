@@ -47,6 +47,41 @@ local function console_job_id(bufnr)
   end
 end
 
+local function console_term_cwd(bufnr)
+  local name = vim.api.nvim_buf_get_name(bufnr)
+  return name:match("^term://(.-)//%d+:") or vim.fn.getcwd(0)
+end
+
+local function console_command_path()
+  local path = vim.fn.exepath("rarr")
+  if path ~= "" then
+    return vim.fs.normalize(path)
+  end
+
+  return "/rarr"
+end
+
+local function set_console_buffer_identity(bufnr)
+  local job_id = console_job_id(bufnr)
+  if not job_id then
+    return
+  end
+
+  local name = ("term://%s//%s:%s"):format(
+    console_term_cwd(bufnr),
+    job_id,
+    console_command_path()
+  )
+
+  if vim.api.nvim_buf_get_name(bufnr) ~= name then
+    pcall(vim.api.nvim_buf_set_name, bufnr, name)
+  end
+
+  vim.b[bufnr].rarr_console = true
+  vim.b[bufnr].term_title = "rarr"
+  vim.bo[bufnr].filetype = "rarr_console"
+end
+
 local function console_win()
   local bufnr = console_bufnr()
   if not bufnr then
@@ -571,6 +606,7 @@ function M.setup_console()
   M.mode = "insert"
   M.resume_insert = false
 
+  set_console_buffer_identity(bufnr)
   set_mode_bridge(bufnr)
   require("rarr.package").set_keymaps(bufnr, { "t" })
   M.set_toggle_keymaps(bufnr)

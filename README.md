@@ -134,6 +134,9 @@ first file under `R/` so `R.nvim` can start from a real R buffer. If
 the package has no files under `R/`, `rarr.nvim` creates
 `R/tmp_rarr.R` with a comment that it is safe to delete.
 
+> [!NOTE]
+> The R console buffer uses `filetype=rarr_console` for UI integrations.
+
 ## Shell terminal overlay
 
 `rarr.nvim` can also coordinate a regular shell terminal with the R
