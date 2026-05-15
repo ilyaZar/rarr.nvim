@@ -37,6 +37,34 @@ With [lazy.nvim](https://github.com/folke/lazy.nvim):
 `setup(opts)` mutates R.nvim's options table in place. Call it
 inside the R.nvim `opts` function.
 
+## DAP and debugger UI
+
+`rarr.nvim` can start the live R console with DAP metadata so
+[nvim-dap-r](https://github.com/ilyaZar/nvim-dap-r) can attach to it.
+It does not require `nvim-dap`, `nvim-dap-r`, or any debugger UI plugin
+for the normal R console workflow.
+
+The boundary is:
+
+- `rarr.nvim` starts the console and exposes DAP session metadata
+- `nvim-dap-r` reads that metadata and registers an R adapter with
+  `nvim-dap`
+- debugger UI plugins read the active `nvim-dap` session and events
+
+That keeps debugger panes separate from the console integration. For
+the debugger UI itself, use the same generic `nvim-dap` extensions used
+by other language adapters:
+
+- [nvim-dap-ui](https://github.com/rcarriga/nvim-dap-ui) for scopes,
+  stack frames, watches, breakpoints, and REPL/console panes
+- [nvim-dap-view](https://github.com/igorlfs/nvim-dap-view) as an
+  alternative `nvim-dap` UI
+- [nvim-dap-virtual-text](https://github.com/theHamsta/nvim-dap-virtual-text)
+  for inline variable values and stop reasons
+
+These plugins should not need R-specific integration points in
+`rarr.nvim`; they should work through `nvim-dap`.
+
 ## R.nvim options set by rarr.nvim
 
 `setup()` sets the following R.nvim options. If you set
