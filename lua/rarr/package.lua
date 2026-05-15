@@ -203,7 +203,7 @@ function M.task_definition(action_key, cwd)
     return nil
   end
 
-  return {
+  local definition = {
     name = action.task_name,
     cmd = { "R", "--quiet", "--no-save", "-e", expr },
     cwd = cwd,
@@ -213,6 +213,16 @@ function M.task_definition(action_key, cwd)
       "display_duration",
     },
   }
+
+  local ok, makevars = pcall(require, "rarr.makevars")
+  if ok then
+    local env = makevars.task_env()
+    if env then
+      definition.env = env
+    end
+  end
+
+  return definition
 end
 
 return M

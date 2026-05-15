@@ -38,6 +38,7 @@ function M.setup(opts, config)
   local console = require("rarr.console")
   local debug = require("rarr.debug")
   local dap = require("rarr.dap")
+  local makevars = require("rarr.makevars")
   local slot = require("rarr.terminal_slot")
   local rarr_config = require("rarr.config")
   local shell = nil
@@ -48,6 +49,7 @@ function M.setup(opts, config)
   slot.configure(opts, config.terminal_slot)
   rarr_config.setup(config)
   dap.setup(config.dap)
+  makevars.setup(config.makevars)
 
   if config.actions then
     package.configure(config.actions)
@@ -59,6 +61,7 @@ function M.setup(opts, config)
   end
 
   package.register_commands()
+  makevars.register_commands()
 
   warn_conflict(opts, "hl_term", false,
     "rarr renders its own ANSI prompt")
