@@ -145,11 +145,65 @@ Action fields:
 - `desc` (string, required) -- keymap description
 - `map` (string) -- keymap LHS
 - `command` (string) -- ex command name (e.g. `"Rload"`)
-- `task_name` (string) -- [overseer.nvim](https://github.com/stevearc/overseer.nvim) task name
+- `task_name` (string) --
+  [overseer.nvim](https://github.com/stevearc/overseer.nvim) task name
 - `package` (boolean, default `false`) -- guard behind `DESCRIPTION`
 
 Actions with `package = true` only run inside an R package
 directory. Actions without it run anywhere R.nvim is active.
+
+## Makevars manager
+
+`:RMakevars` opens a floating Makevars manager for the active R
+session. The left pane lists files under `~/.R/`, with `Makevars*`
+files sorted first, plus readable site Makevars files and existing
+package `src/Makevars*` files when they are relevant. The right pane
+is a real editable file buffer for the selected path, so normal
+`:write` saves changes.
+
+Press `Enter` on a user Makevars file to set it for future package
+compilation in the running R process:
+
+```r
+Sys.setenv(R_MAKEVARS_USER = "...")
+```
+
+The active `R_MAKEVARS_USER` path is marked with `*`. Press `u` to
+unset it with `Sys.unsetenv("R_MAKEVARS_USER")`. Package
+`src/Makevars`, `src/Makevars.win`, and `src/Makevars.ucrt` entries
+are edit-only; rarr.nvim never points `R_MAKEVARS_USER` at a
+package-local Makevars file.
+
+In the left pane, use `j`/`k` to move, `Enter` to set the active user
+Makevars path, `Tab` to focus the editable preview, and `i` to focus
+the top filename prompt.
+
+The top prompt accepts either a name under `~/.R/` or a full path. If
+the file does not exist, rarr.nvim asks before creating it. Explicit
+selection also updates Neovim's `R_MAKEVARS_USER` environment by
+default, so rarr.nvim's Overseer package tasks inherit the same user
+Makevars path.
+
+Configuration:
+
+```lua
+require("rarr").setup(opts, {
+  makevars = {
+    command = "RMakevars",
+    user_dir = "~/.R",
+    marker = "*",
+    include_site = true,
+    include_package = true,
+    sync_overseer_env = true,
+  },
+})
+```
+
+Changing Makevars does not force native code to rebuild by itself.
+Use a rebuild path such as `devtools::load_all(recompile = TRUE)`,
+`pkgbuild::clean_dll()` followed by `devtools::load_all()`, or
+`devtools::install()`/`R CMD INSTALL --preclean` when you need new
+compiler flags to take effect.
 
 ## Console toggle
 
