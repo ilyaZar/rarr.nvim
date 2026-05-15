@@ -37,6 +37,7 @@ function M.setup(opts, config)
   local package = require("rarr.package")
   local console = require("rarr.console")
   local debug = require("rarr.debug")
+  local dap = require("rarr.dap")
   local slot = require("rarr.terminal_slot")
   local rarr_config = require("rarr.config")
   local shell = nil
@@ -46,6 +47,7 @@ function M.setup(opts, config)
 
   slot.configure(opts, config.terminal_slot)
   rarr_config.setup(config)
+  dap.setup(config.dap)
 
   if config.actions then
     package.configure(config.actions)
@@ -105,6 +107,10 @@ function M.setup(opts, config)
     end
     console.setup_console()
   end
+end
+
+function M.dap_session()
+  return require("rarr.dap").session()
 end
 
 return M

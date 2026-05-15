@@ -61,6 +61,14 @@ local function console_command_path()
   return "/rarr"
 end
 
+local function shell_join(parts)
+  local escaped = {}
+  for _, part in ipairs(parts) do
+    escaped[#escaped + 1] = vim.fn.shellescape(part)
+  end
+  return table.concat(escaped, " ")
+end
+
 local function set_console_buffer_identity(bufnr)
   local job_id = console_job_id(bufnr)
   if not job_id then
@@ -348,12 +356,19 @@ end
 
 function M.r_app_command()
   local colors = palette()
-  return table.concat({
+  local parts = {
     "env",
-    "RARR_PROMPT_INSERT_COLOR='" .. colors.insert .. "'",
-    "RARR_PROMPT_NORMAL_COLOR='" .. colors.normal .. "'",
+    "RARR_PROMPT_INSERT_COLOR=" .. colors.insert,
+    "RARR_PROMPT_NORMAL_COLOR=" .. colors.normal,
     "rarr",
-  }, " ")
+  }
+
+  local ok, dap = pcall(require, "rarr.dap")
+  if ok then
+    vim.list_extend(parts, dap.rarr_args())
+  end
+
+  return shell_join(parts)
 end
 
 function M.toggle_console()
