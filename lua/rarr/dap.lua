@@ -7,6 +7,9 @@ local config = {
   host = "127.0.0.1",
   port = 0,
   metadata_path = nil,
+  auto_attach = false,
+  auto_attach_delay_ms = 100,
+  auto_attach_timeout_ms = 5000,
 }
 
 local function joinpath(...)
@@ -127,6 +130,59 @@ function M.session()
   session.job_id = console_job_id(bufnr)
 
   return session
+end
+
+local function dap_r_is_active(dap_r)
+  if type(dap_r.is_active) == "function" then
+    return dap_r.is_active()
+  end
+
+  local ok, dap = pcall(require, "dap")
+  if not ok or type(dap.session) ~= "function" then
+    return false
+  end
+
+  local session = dap.session()
+  return session and session.config and session.config.type == "r"
+end
+
+function M.auto_attach()
+  if not config.enabled or not config.auto_attach then
+    return
+  end
+
+  local ok, dap_r = pcall(require, "dap-r")
+  if not ok then
+    return
+  end
+
+  local deadline = uv.now() + (config.auto_attach_timeout_ms or 5000)
+
+  local function poll()
+    if dap_r_is_active(dap_r) then
+      return
+    end
+
+    local session = M.session()
+    if session then
+      local attached, err = pcall(dap_r.attach, {
+        host = session.host,
+        port = session.port,
+      })
+      if not attached then
+        vim.notify(tostring(err), vim.log.levels.WARN)
+      end
+      return
+    end
+
+    if uv.now() > deadline then
+      return
+    end
+
+    vim.defer_fn(poll, config.auto_attach_delay_ms or 100)
+  end
+
+  vim.defer_fn(poll, config.auto_attach_delay_ms or 100)
 end
 
 return M

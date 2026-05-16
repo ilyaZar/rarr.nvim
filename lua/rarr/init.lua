@@ -49,6 +49,7 @@ function M.setup(opts, config)
   slot.configure(opts, config.terminal_slot)
   rarr_config.setup(config)
   dap.setup(config.dap)
+  debug.setup(config.debug)
   makevars.setup(config.makevars)
 
   if config.actions then
@@ -109,6 +110,7 @@ function M.setup(opts, config)
       prev_after_r_start()
     end
     console.setup_console()
+    dap.auto_attach()
   end
 end
 

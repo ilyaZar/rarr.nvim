@@ -65,6 +65,29 @@ by other language adapters:
 These plugins should not need R-specific integration points in
 `rarr.nvim`; they should work through `nvim-dap`.
 
+DAP is enabled by default when `rarr.nvim` starts `rarr`. The default
+is conservative: it writes discoverable metadata but does not attach
+`nvim-dap` automatically.
+
+```lua
+require("rarr").setup(opts, {
+  dap = {
+    enabled = true,
+    host = "127.0.0.1",
+    port = 0,
+    metadata_path = nil,
+    auto_attach = false,
+    auto_attach_delay_ms = 100,
+    auto_attach_timeout_ms = 5000,
+  },
+})
+```
+
+When `auto_attach = true`, `rarr.nvim` waits until rarr's DAP metadata
+is readable, then calls `require("dap-r").attach()` if `nvim-dap-r` is
+available and no R DAP session is already active. Missing DAP plugins
+are ignored so the normal R console workflow still works.
+
 ## R.nvim options set by rarr.nvim
 
 `setup()` sets the following R.nvim options. If you set
@@ -118,6 +141,46 @@ conflict and asks you to configure different maps under
 `keys.console.maps` and `keys.shell.maps`.
 
 Set an actor's `maps` to `{}` or `false` to leave its toggle unmapped.
+
+## R debug helper keymaps
+
+Legacy R debug helper maps are buffer-local and configurable. They
+delegate to R.nvim's `debug()`, `undebug()`, `debugonce()`,
+`traceback()`, and error recovery helpers; they are separate from DAP.
+
+Defaults:
+
+| Key              | Default       | Meaning                    |
+|------------------|---------------|----------------------------|
+| `debug`          | `<leader>dd`  | `debug(func)`              |
+| `undebug`        | `<leader>du`  | `undebug(func)`            |
+| `debugonce`      | `<leader>do`  | `debugonce(func)`          |
+| `traceback`      | `<leader>dt`  | `traceback()`              |
+| `recover`        | `<leader>dr`  | `options(error = recover)` |
+| `clear_error`    | `<leader>dR`  | `options(error = NULL)`    |
+| `center`         | `<leader>dc`  | toggle R.nvim debug center |
+
+Move or disable them when `<leader>d` should be reserved for
+`nvim-dap`:
+
+```lua
+require("rarr").setup(opts, {
+  debug = {
+    keymaps = {
+      debug = "<leader>rd",
+      undebug = "<leader>ru",
+      debugonce = "<leader>ro",
+      traceback = "<leader>rt",
+      recover = "<leader>rr",
+      clear_error = "<leader>rR",
+      center = "<leader>rc",
+    },
+  },
+})
+```
+
+Set `debug = false` to disable all legacy R debug helper maps, or set
+an individual map to `false`.
 
 ## Custom actions
 
