@@ -459,9 +459,11 @@ local function set_mode_bridge(bufnr)
 
   for _, key in ipairs({ "i", "a", "I", "A" }) do
     vim.keymap.set("n", key, function()
+      local key_to_send = nil
       if M.mode ~= "insert" then
-        set_insert_mode(bufnr, key)
+        key_to_send = key
       end
+      set_insert_mode(bufnr, key_to_send)
     end, {
       buffer = bufnr,
       desc = "Switch rarr and Neovim to insert mode",
@@ -560,7 +562,8 @@ local function set_mode_bridge(bufnr)
   -- Mouse away (from normal mode):
   --                    WinLeave fires -> arm_insert_return
   -- Return to console: BufEnter/WinEnter fires ->
-  --                    if resume_insert, startinsert
+  --                    if resume_insert or mode is insert,
+  --                    startinsert
 
   vim.api.nvim_create_autocmd("TermLeave", {
     group = group,
@@ -597,7 +600,7 @@ local function set_mode_bridge(bufnr)
     group = group,
     buffer = bufnr,
     callback = function()
-      if not M.resume_insert then
+      if not M.resume_insert and M.mode ~= "insert" then
         return
       end
 
