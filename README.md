@@ -37,6 +37,57 @@ With [lazy.nvim](https://github.com/folke/lazy.nvim):
 `setup(opts)` mutates R.nvim's options table in place. Call it
 inside the R.nvim `opts` function.
 
+## DAP and debugger UI
+
+`rarr.nvim` can start the live R console with DAP metadata so
+[nvim-dap-r](https://github.com/ilyaZar/nvim-dap-r) can attach to it.
+It does not require `nvim-dap`, `nvim-dap-r`, or any debugger UI plugin
+for the normal R console workflow.
+
+The boundary is:
+
+- `rarr.nvim` starts the console and exposes DAP session metadata
+- `nvim-dap-r` reads that metadata and registers an R adapter with
+  `nvim-dap`
+- debugger UI plugins read the active `nvim-dap` session and events
+
+That keeps debugger panes separate from the console integration. For
+the debugger UI itself, use the same generic `nvim-dap` extensions used
+by other language adapters:
+
+- [nvim-dap-ui](https://github.com/rcarriga/nvim-dap-ui) for scopes,
+  stack frames, watches, breakpoints, and REPL/console panes
+- [nvim-dap-view](https://github.com/igorlfs/nvim-dap-view) as an
+  alternative `nvim-dap` UI
+- [nvim-dap-virtual-text](https://github.com/theHamsta/nvim-dap-virtual-text)
+  for inline variable values and stop reasons
+
+These plugins should not need R-specific integration points in
+`rarr.nvim`; they should work through `nvim-dap`.
+
+DAP is enabled by default when `rarr.nvim` starts `rarr`. The default
+is conservative: it writes discoverable metadata but does not attach
+`nvim-dap` automatically.
+
+```lua
+require("rarr").setup(opts, {
+  dap = {
+    enabled = true,
+    host = "127.0.0.1",
+    port = 0,
+    metadata_path = nil,
+    auto_attach = false,
+    auto_attach_delay_ms = 100,
+    auto_attach_timeout_ms = 5000,
+  },
+})
+```
+
+When `auto_attach = true`, `rarr.nvim` waits until rarr's DAP metadata
+is readable, then calls `require("dap-r").attach()` if `nvim-dap-r` is
+available and no R DAP session is already active. Missing DAP plugins
+are ignored so the normal R console workflow still works.
+
 ## R.nvim options set by rarr.nvim
 
 `setup()` sets the following R.nvim options. If you set
@@ -91,6 +142,46 @@ conflict and asks you to configure different maps under
 
 Set an actor's `maps` to `{}` or `false` to leave its toggle unmapped.
 
+## R debug helper keymaps
+
+Legacy R debug helper maps are buffer-local and configurable. They
+delegate to R.nvim's `debug()`, `undebug()`, `debugonce()`,
+`traceback()`, and error recovery helpers; they are separate from DAP.
+
+Defaults:
+
+| Key              | Default       | Meaning                    |
+|------------------|---------------|----------------------------|
+| `debug`          | `<leader>dd`  | `debug(func)`              |
+| `undebug`        | `<leader>du`  | `undebug(func)`            |
+| `debugonce`      | `<leader>do`  | `debugonce(func)`          |
+| `traceback`      | `<leader>dt`  | `traceback()`              |
+| `recover`        | `<leader>dr`  | `options(error = recover)` |
+| `clear_error`    | `<leader>dR`  | `options(error = NULL)`    |
+| `center`         | `<leader>dc`  | toggle R.nvim debug center |
+
+Move or disable them when `<leader>d` should be reserved for
+`nvim-dap`:
+
+```lua
+require("rarr").setup(opts, {
+  debug = {
+    keymaps = {
+      debug = "<leader>rd",
+      undebug = "<leader>ru",
+      debugonce = "<leader>ro",
+      traceback = "<leader>rt",
+      recover = "<leader>rr",
+      clear_error = "<leader>rR",
+      center = "<leader>rc",
+    },
+  },
+})
+```
+
+Set `debug = false` to disable all legacy R debug helper maps, or set
+an individual map to `false`.
+
 ## Custom actions
 
 Pass a second table to `setup()` to add or override actions:
@@ -117,11 +208,65 @@ Action fields:
 - `desc` (string, required) -- keymap description
 - `map` (string) -- keymap LHS
 - `command` (string) -- ex command name (e.g. `"Rload"`)
-- `task_name` (string) -- [overseer.nvim](https://github.com/stevearc/overseer.nvim) task name
+- `task_name` (string) --
+  [overseer.nvim](https://github.com/stevearc/overseer.nvim) task name
 - `package` (boolean, default `false`) -- guard behind `DESCRIPTION`
 
 Actions with `package = true` only run inside an R package
 directory. Actions without it run anywhere R.nvim is active.
+
+## Makevars manager
+
+`:RMakevars` opens a floating Makevars manager for the active R
+session. The left pane lists files under `~/.R/`, with `Makevars*`
+files sorted first, plus readable site Makevars files and existing
+package `src/Makevars*` files when they are relevant. The right pane
+is a real editable file buffer for the selected path, so normal
+`:write` saves changes.
+
+Press `Enter` on a user Makevars file to set it for future package
+compilation in the running R process:
+
+```r
+Sys.setenv(R_MAKEVARS_USER = "...")
+```
+
+The active `R_MAKEVARS_USER` path is marked with `*`. Press `u` to
+unset it with `Sys.unsetenv("R_MAKEVARS_USER")`. Package
+`src/Makevars`, `src/Makevars.win`, and `src/Makevars.ucrt` entries
+are edit-only; rarr.nvim never points `R_MAKEVARS_USER` at a
+package-local Makevars file.
+
+In the left pane, use `j`/`k` to move, `Enter` to set the active user
+Makevars path, `Tab` to focus the editable preview, and `i` to focus
+the top filename prompt.
+
+The top prompt accepts either a name under `~/.R/` or a full path. If
+the file does not exist, rarr.nvim asks before creating it. Explicit
+selection also updates Neovim's `R_MAKEVARS_USER` environment by
+default, so rarr.nvim's Overseer package tasks inherit the same user
+Makevars path.
+
+Configuration:
+
+```lua
+require("rarr").setup(opts, {
+  makevars = {
+    command = "RMakevars",
+    user_dir = "~/.R",
+    marker = "*",
+    include_site = true,
+    include_package = true,
+    sync_overseer_env = true,
+  },
+})
+```
+
+Changing Makevars does not force native code to rebuild by itself.
+Use a rebuild path such as `devtools::load_all(recompile = TRUE)`,
+`pkgbuild::clean_dll()` followed by `devtools::load_all()`, or
+`devtools::install()`/`R CMD INSTALL --preclean` when you need new
+compiler flags to take effect.
 
 ## Console toggle
 

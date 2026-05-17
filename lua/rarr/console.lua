@@ -61,6 +61,14 @@ local function console_command_path()
   return "/rarr"
 end
 
+local function shell_join(parts)
+  local escaped = {}
+  for _, part in ipairs(parts) do
+    escaped[#escaped + 1] = vim.fn.shellescape(part)
+  end
+  return table.concat(escaped, " ")
+end
+
 local function set_console_buffer_identity(bufnr)
   local job_id = console_job_id(bufnr)
   if not job_id then
@@ -348,12 +356,19 @@ end
 
 function M.r_app_command()
   local colors = palette()
-  return table.concat({
+  local parts = {
     "env",
-    "RARR_PROMPT_INSERT_COLOR='" .. colors.insert .. "'",
-    "RARR_PROMPT_NORMAL_COLOR='" .. colors.normal .. "'",
+    "RARR_PROMPT_INSERT_COLOR=" .. colors.insert,
+    "RARR_PROMPT_NORMAL_COLOR=" .. colors.normal,
     "rarr",
-  }, " ")
+  }
+
+  local ok, dap = pcall(require, "rarr.dap")
+  if ok then
+    vim.list_extend(parts, dap.rarr_args())
+  end
+
+  return shell_join(parts)
 end
 
 function M.toggle_console()
@@ -444,9 +459,11 @@ local function set_mode_bridge(bufnr)
 
   for _, key in ipairs({ "i", "a", "I", "A" }) do
     vim.keymap.set("n", key, function()
+      local key_to_send = nil
       if M.mode ~= "insert" then
-        set_insert_mode(bufnr, key)
+        key_to_send = key
       end
+      set_insert_mode(bufnr, key_to_send)
     end, {
       buffer = bufnr,
       desc = "Switch rarr and Neovim to insert mode",
@@ -545,7 +562,8 @@ local function set_mode_bridge(bufnr)
   -- Mouse away (from normal mode):
   --                    WinLeave fires -> arm_insert_return
   -- Return to console: BufEnter/WinEnter fires ->
-  --                    if resume_insert, startinsert
+  --                    if resume_insert or mode is insert,
+  --                    startinsert
 
   vim.api.nvim_create_autocmd("TermLeave", {
     group = group,
@@ -582,7 +600,7 @@ local function set_mode_bridge(bufnr)
     group = group,
     buffer = bufnr,
     callback = function()
-      if not M.resume_insert then
+      if not M.resume_insert and M.mode ~= "insert" then
         return
       end
 
